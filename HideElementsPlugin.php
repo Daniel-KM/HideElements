@@ -17,12 +17,17 @@ class HideElementsPlugin extends Omeka_Plugin_AbstractPlugin
         'items_browse_sql',
     );
 
-    protected $_filters = array('display_elements', 'elements_select_options');
+    protected $_filters = array(
+        'index_elements',
+        'display_elements',
+        'elements_select_options',
+    );
 
     public function hookInstall()
     {
         $defaults = array(
             'override' => array(),
+            'index' => array(),
             'form' => array(),
             'admin' => array(),
             'public' => array(),
@@ -91,6 +96,7 @@ class HideElementsPlugin extends Omeka_Plugin_AbstractPlugin
         $post = $args['post'];
         $settings = array(
             'override' => isset($post['override']) ? $post['override'] : array(),
+            'index' => isset($post['index']) ? $post['index'] : array(),
             'form' => isset($post['form']) ? $post['form'] : array(),
             'admin' => isset($post['admin']) ? $post['admin'] : array(),
             'public' => isset($post['public']) ? $post['public'] : array(),
@@ -156,6 +162,38 @@ class HideElementsPlugin extends Omeka_Plugin_AbstractPlugin
                 }
             }
         }
+    }
+
+    /**
+     * Filter to alter element texts to save in the full text index.
+     *
+     * @param array $elementTexts
+     */
+    public function filterIndexElements($elementTexts)
+    {
+        // Full text indexation can't be overridden because the same field is
+        // used for all users.
+        if (!isset($this->_settings['index'])) {
+            return $elementTexts;
+        }
+
+        // Flat the list of element texts to simplify the process.
+        $elementIds = array();
+        foreach ($elementTexts as $key => $elementText) {
+            $elementIds[$elementText->element_id][] = $key;
+        }
+
+        foreach ($this->_settings['index'] as $elementSet => $elements) {
+            foreach ($elements as $id => $hidden) {
+                if (isset($elementIds[$id])) {
+                    foreach ($elementIds[$id] as $key) {
+                        unset($elementTexts[$key]);
+                    }
+                }
+            }
+        }
+
+        return $elementTexts;
     }
 
     public function filterDisplayElements($elementsBySet)
